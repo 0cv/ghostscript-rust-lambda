@@ -6,7 +6,7 @@
 
 **Build**
 
-`make build`
+`make prebuild`
 
 **Deployment**
 
