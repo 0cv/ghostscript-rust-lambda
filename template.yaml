@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  GhostscriptRust:
+    Type: AWS::Serverless::Function
+    Properties:
+      MemorySize: 256
+      Architectures: ["x86_64"]
+      Handler: bootstrap
+      Runtime: provided.al2
+      Timeout: 30
+      CodeUri: .
+      Layers:
+        - !Ref GhostscriptLayer
+    Metadata:
+      BuildMethod: makefile
+
+  GhostscriptLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: gs-layer
+      Description: Ghostscript Layer
+      ContentUri: gs-lib/
+      RetentionPolicy: Retain
+
+Outputs:
+  FunctionName:
+    Value: !Ref GhostscriptRust
+    Description: Ghostscript with Rust
