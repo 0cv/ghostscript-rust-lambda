@@ -8,6 +8,7 @@ name = "bootstrap"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "*"
 ghostscript = { path = "../ghostscript-rs", version = "0.1.0" }
 tokio = { version = "1.0", features = ["macros", "io-util", "sync", "rt-multi-thread"] }
 lambda_runtime = { version = "0.5" }

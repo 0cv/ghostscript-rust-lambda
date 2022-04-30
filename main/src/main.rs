@@ -1,17 +1,20 @@
 extern crate ghostscript;
+extern crate base64;
 use ghostscript as gs;
 use gs::builder::{BuilderResult, GhostscriptBuilder};
 
+mod display_callback;
+
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
+use display_callback::PageGrabberDisplayCallback;
+use std::{fs::File, io::Read};
 
 /// This is also a made-up example. Requests come into the runtime as unicode
 /// strings in json format, which can map to any structure that implements `serde::Deserialize`
 /// The runtime pays no attention to the contents of the request payload.
 #[derive(Deserialize)]
-struct Request {
-    command: String,
-}
+struct Request {}
 
 /// This is a made-up example of what a response structure may look like.
 /// There is no restriction on what it can be. The runtime requires responses
@@ -20,7 +23,7 @@ struct Request {
 #[derive(Serialize)]
 struct Response {
     req_id: String,
-    msg: String,
+    base64: String,
 }
 
 #[tokio::main]
@@ -41,13 +44,12 @@ async fn main() -> Result<(), Error> {
 
 pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
     // extract some useful info from the request
-    let command = event.payload.command;
-    exec_pdf();
+    let base64 = exec_pdf();
 
     // prepare the response
     let resp = Response {
         req_id: event.context.request_id,
-        msg: format!("Command {} executed.", command),
+        base64: base64,
     };
 
     // return `Response` (it will be serialized to JSON automatically by the runtime)
@@ -55,22 +57,26 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, 
 }
 
 
-fn exec_pdf() {
+fn exec_pdf() -> String {
+    let output_file_name = "/tmp/output.tif";
     let mut builder = GhostscriptBuilder::new();
+    let mut my_callback = PageGrabberDisplayCallback::new();
+
+    builder.with_stdin(true);
+    // builder.with_display(true);
 
     builder.with_init_params(&[
         "-sDEVICE=tiffg4",
         "-dNOPAUSE",
         "-r300x300",
-        "-sOutputFile=/tmp/output.tif",
-        "--",
-        "./input.pdf",
+        &format!("-sOutputFile={}", output_file_name),
+        "-",
     ]);
 
     // If we used build() instead of build_simple() we could have passed any data
     // to associate with the new Ghostscript interpreter instance.
     // Such user data can also implement some useful Ghostscript callback traits.
-    match builder.build_simple() {
+    match builder.build(&mut my_callback) {
         BuilderResult::Running(instance) => {
             // This is where we could get a running instance for further interpreter work.
             // But our init params above should have made the interpreter immediately quit
@@ -97,8 +103,11 @@ fn exec_pdf() {
     // All the settings and parameters are preserved.
     // The following repeats the same rendering as above, but the has_quit() shorthand is used
     // to convert BuilderResult into Result in a similar way to the above match.
-    builder
-        .build_simple()
-        .has_quit()
-        .expect("Interpreter failed to start or kept running");
+    my_callback.into_pages();
+
+    let mut f = Result::unwrap(File::open(output_file_name));
+    let mut buffer = Vec::new();
+    Result::unwrap(f.read_to_end(&mut buffer));
+
+    return String::from(base64::encode(&buffer.as_slice()));
 }
