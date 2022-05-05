@@ -588,6 +588,7 @@ dependencies = [
 name = "main"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "ghostscript",
  "lambda_runtime",
  "serde",

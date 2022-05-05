@@ -24,20 +24,21 @@ impl ::std::fmt::Debug for RawImage {
 }
 
 #[derive(Debug)]
-pub struct PageGrabberDisplayCallback {
+pub struct PageGrabberDisplayCallback<'a> {
     width: usize,
     height: usize,
     raster: usize,
     format: DisplayFormat,
     pimage: *mut u8,
     pages: Vec<RawImage>,
-    buf_reader: BufReader<File>,
+    buf_reader: BufReader<&'a[u8]>,
 }
 
-impl PageGrabberDisplayCallback {
-    pub fn new() -> Self {
-        let f = Result::unwrap(File::open("./input.pdf"));
-        let buf_reader = BufReader::new(f);
+impl <'a>PageGrabberDisplayCallback<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        // let f = Result::unwrap(File::open("./input.pdf"));
+        // let buf_reader = BufReader::new(f);
+        let buf_reader = BufReader::new(bytes);
 
         PageGrabberDisplayCallback {
             width: 0,
@@ -55,13 +56,13 @@ impl PageGrabberDisplayCallback {
     }
 }
 
-impl Default for PageGrabberDisplayCallback {
+impl <'a>Default for PageGrabberDisplayCallback<'a> {
     fn default() -> Self {
-        PageGrabberDisplayCallback::new()
+        PageGrabberDisplayCallback::new(b"")
     }
 }
 
-impl gs::callback::panic::PanicCallback for PageGrabberDisplayCallback {}
+impl <'a>gs::callback::panic::PanicCallback for PageGrabberDisplayCallback<'a> {}
 
 // impl gs::callback::display::DisplayCallback for PageGrabberDisplayCallback {
 //     fn display_size(
@@ -132,7 +133,7 @@ impl gs::callback::panic::PanicCallback for PageGrabberDisplayCallback {}
 //     }
 // }
 
-impl ghostscript::callback::stdio::StdioCallback for PageGrabberDisplayCallback {
+impl <'a>ghostscript::callback::stdio::StdioCallback for PageGrabberDisplayCallback<'a> {
     fn read_stdin(&mut self, _buf: &mut [u8]) -> Option<usize> {
         let n = Result::unwrap(self.buf_reader.read(&mut _buf[..]));
         Some(n)

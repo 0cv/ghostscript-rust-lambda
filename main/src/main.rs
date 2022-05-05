@@ -14,7 +14,9 @@ use std::{fs::File, io::Read};
 /// strings in json format, which can map to any structure that implements `serde::Deserialize`
 /// The runtime pays no attention to the contents of the request payload.
 #[derive(Deserialize)]
-struct Request {}
+struct Request {
+    file: String,
+}
 
 /// This is a made-up example of what a response structure may look like.
 /// There is no restriction on what it can be. The runtime requires responses
@@ -44,7 +46,7 @@ async fn main() -> Result<(), Error> {
 
 pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
     // extract some useful info from the request
-    let base64 = exec_pdf();
+    let base64 = exec_pdf(event.payload.file);
 
     // prepare the response
     let resp = Response {
@@ -57,10 +59,13 @@ pub(crate) async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, 
 }
 
 
-fn exec_pdf() -> String {
+fn exec_pdf(file: String) -> String {
+
     let output_file_name = "/tmp/output.tif";
     let mut builder = GhostscriptBuilder::new();
-    let mut my_callback = PageGrabberDisplayCallback::new();
+
+    let bytes = base64::decode(file).unwrap();
+    let mut my_callback = PageGrabberDisplayCallback::new(&bytes);
 
     builder.with_stdin(true);
     // builder.with_display(true);
@@ -83,17 +88,17 @@ fn exec_pdf() -> String {
             // after rendering the file.
             eprintln!("Unexpected ghostscript instance: {:?}", instance);
             // Our user data can be extracted back, destroying the interpreter instance.
-            eprintln!("I'm just a NoCallback: {:?}", instance.into_inner());
+            eprintln!("Running - I'm just a NoCallback: {:?}", instance.into_inner());
             unreachable!("The instance should have quit immediately after initialization.");
         },
         BuilderResult::Quit(user_data) => {
             // Interpreter ran and quit. Execution successfully completed.
             // Our user data is returned back. But we used build_simple() instead of build().
-            println!("I'm just a NoCallback: {:?}", user_data);
+            println!("Quit - I'm just a NoCallback: {:?}", user_data);
         },
         BuilderResult::Failed(e) => {
             // Interpreter failed to build or run. The user_data is returned to us still.
-            eprintln!("I'm just a NoCallback: {:?}", e.user_data);
+            eprintln!("Failed - I'm just a NoCallback: {:?}", e.user_data);
             // As well as details about which part of the build process failed.
             panic!("Error building instance: {:?}", e.kind_and_code());
         },
