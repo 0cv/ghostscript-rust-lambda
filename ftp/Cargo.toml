@@ -1,0 +1,12 @@
+[package]
+name = "ftp"
+description = "FTP"
+version = "0.1.0"
+authors = ["Christophe"]
+readme = "README.md"
+include = ["src/**/*", "Cargo.toml", "*.md", "LICENSE*.txt"]
+
+[dependencies]
+ssh2 = "0.9" 
+openssl = { version = "0.10", features = ["vendored"] }
+error-chain = "*"

@@ -1,0 +1,26 @@
+FROM public.ecr.aws/sam/build-provided.al2:latest-x86_64 AS build-stage
+
+# install ziglang (required by cargo lambda)
+RUN yum -y install python3-pip
+RUN python3 -m pip install ziglang
+
+# install C compiler
+RUN yum groupinstall "Development Tools" -y
+# RUN yum install ghostscript -y
+
+# install rustc / cargo
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+
+COPY ghostscript/ghostscript-9.56.1.tar.gz /src/
+
+# set the compilation directory
+WORKDIR "/src"
+RUN tar -zxf ghostscript-9.56.1.tar.gz
+RUN mv ghostscript-9.56.1 ghostscript
+WORKDIR "/src/ghostscript"
+RUN ./configure
+RUN make
+RUN make so
+
+# make cargo available on the path
+ENV PATH="/root/.cargo/bin:${PATH}"

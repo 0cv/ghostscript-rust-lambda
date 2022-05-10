@@ -9,7 +9,7 @@ Resources:
       Architectures: ["x86_64"]
       Handler: bootstrap
       Runtime: provided.al2
-      Timeout: 30
+      Timeout: 300
       CodeUri: .
       Layers:
         - !Ref GhostscriptLayer
@@ -21,7 +21,7 @@ Resources:
     Properties:
       LayerName: gs-layer
       Description: Ghostscript Layer
-      ContentUri: gs-lib/
+      ContentUri: ghostscript/gs-lib/
       RetentionPolicy: Retain
 
 Outputs:

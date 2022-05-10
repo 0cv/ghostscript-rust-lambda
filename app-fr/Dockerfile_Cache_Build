@@ -1,0 +1,11 @@
+FROM ghostscript_rust
+
+WORKDIR "/tmp/src"
+RUN mkdir -p /tmp/src
+
+COPY ../Cargo.toml /tmp/src
+COPY ../ftp /tmp/src/ftp
+COPY ../ghostscript /tmp/src/ghostscript
+COPY ../app-fr /tmp/src/app-fr
+
+RUN cargo build --target x86_64-unknown-linux-gnu --bin aws-fr --features="bootstrap" --release

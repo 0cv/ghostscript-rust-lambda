@@ -1,0 +1,13 @@
+FROM ghostscript_rust_cached AS build-stage
+
+WORKDIR "/tmp/src"
+
+COPY ../Cargo.toml /tmp/src
+COPY ../ftp /tmp/src/ftp
+COPY ../ghostscript /tmp/src/ghostscript
+COPY ../app-fr /tmp/src/app-fr
+
+RUN cargo build --target x86_64-unknown-linux-gnu --bin aws-fr --features="bootstrap" --release
+
+FROM scratch AS export-stage
+COPY --from=build-stage /tmp/src/target/x86_64-unknown-linux-gnu/release/aws-fr bootstrap

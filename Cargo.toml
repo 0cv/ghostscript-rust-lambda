@@ -1,2 +1,2 @@
 [workspace]
-members = ["ghostscript-rs", "ghostscript-sys", "main"]
+members = ["app-fr", "ghostscript/ghostscript-rs", "ghostscript/ghostscript-sys", "ghostscript/pdf2tiff", "ftp"]

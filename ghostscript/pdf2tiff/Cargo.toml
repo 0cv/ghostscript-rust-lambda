@@ -1,0 +1,12 @@
+[package]
+name = "pdf2tiff"
+description = "PDF to TIFF conversion"
+version = "0.1.0"
+authors = ["Christophe"]
+readme = "README.md"
+include = ["src/**/*", "Cargo.toml", "*.md", "LICENSE*.txt"]
+
+[dependencies]
+ghostscript = { path = "../ghostscript-rs", version = "0.1.0" }
+base64 = "*"
+error-chain = "*"

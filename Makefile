@@ -1,19 +1,25 @@
-prebuild:
-	DOCKER_BUILDKIT=1 docker build -t ghostscript-rust --progress=plain --output type=local,dest=./gs-lib .
+prepare-image:
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile_Prepare_Image -t ghostscript_rust --progress=plain .
 
-# used as placeholder for SAM, i.e. the template.yaml which requires a Make target called as shown here. Shall
-# not be removed
-build-GhostscriptRust:
+get-ghostscript-libs:
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile_Extract_Gs_Libs --progress=plain --output type=local,dest=./ghostscript/gs-lib/lib .
 
-build:
+build-cache-%:
+	DOCKER_BUILDKIT=1 docker build -f ./app-$*/Dockerfile_Cache_Build -t ghostscript_rust_cached --progress=plain .
+
+build-%:
+	DOCKER_BUILDKIT=1 docker build -f ./app-$*/Dockerfile_Build -t ghostscript_rust_latest --progress=plain --output type=local,dest=./.aws-sam/build/GhostscriptRust .
+
+deploy-%:
 	sam build
-	LOCAL_LIB=/Users/christophe/Development/solana/aws-test/target/lib cargo lambda build --release --package main --manifest-path main/Cargo.toml
-	mv ./target/lambda/bootstrap/bootstrap ./.aws-sam/build/GhostscriptRust/bootstrap
+	@make build-$*
+	sam deploy --no-confirm-changeset
 
-deploy:
-	@make build
-	sam deploy
+local-%:
+	cargo run --bin local-$*
 
-local:
-	@make build
+local-sam:
 	sam local invoke -e event.json
+
+build-GhostscriptRust:
+	@echo done
