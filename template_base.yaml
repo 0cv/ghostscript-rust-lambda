@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  GhostscriptRust:
+    Type: AWS::Serverless::Function
+    Properties:
+      MemorySize: 256
+      Architectures: ["x86_64"]
+      Handler: bootstrap
+      Runtime: provided.al2
+      Timeout: 300
+      CodeUri: .
+      Layers:
+        - !Ref GhostscriptLayer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Resource: 
+              - '*'
+            Action:
+              - appconfig:*
+      Environment:
+        Variables:
+          AppId: !Ref Application
+          EnvId: !Ref Environment
+          ConfigId: !Ref ConfigurationProfile
+    Metadata:
+      BuildMethod: makefile
+
+  GhostscriptLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: gs-layer
+      Description: Ghostscript Layer
+      ContentUri: ghostscript/gs-lib/
+      RetentionPolicy: Retain
+
+  Application:
+    Type: AWS::AppConfig::Application
+    Properties:
+      Name: app-config-rust
+    
+  Environment:
+    Type: AWS::AppConfig::Environment
+    Properties:
+      ApplicationId: !Ref Application
+      Name: prod-rust
+
+  ConfigurationProfile:
+    Type: AWS::AppConfig::ConfigurationProfile
+    Properties:
+      ApplicationId: !Ref Application
+      LocationUri: hosted
+      Name: prod-config-rust
+
+  BasicHostedConfigurationVersion:
+    Type: AWS::AppConfig::HostedConfigurationVersion
+    Properties:
+      ApplicationId: !Ref Application
+      ConfigurationProfileId: !Ref ConfigurationProfile
+      Description: 'Standard config'
+      Content: !? $import('servers.yaml')
+      ContentType: 'application/x-yaml'
+
+  DeploymentStrategy:
+    Type: AWS::AppConfig::DeploymentStrategy
+    Properties:
+      DeploymentDurationInMinutes: 1
+      GrowthFactor: 1.0
+      Name: DepStratRust
+      ReplicateTo: NONE
+
+  # Deployment:
+  #   Type: AWS::AppConfig::Deployment
+  #   Properties:
+  #     ApplicationId: !Ref Application
+  #     ConfigurationProfileId: !Ref ConfigurationProfile
+  #     ConfigurationVersion: 1
+  #     DeploymentStrategyId: !Ref DeploymentStrategy
+  #     EnvironmentId: !Ref Environment
+
+# Outputs:
+#   FunctionName:
+#     Value: !Ref GhostscriptRust
+#     Description: Ghostscript with Rust

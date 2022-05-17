@@ -8,6 +8,7 @@ build-cache-%:
 	DOCKER_BUILDKIT=1 docker build -f ./app-$*/Dockerfile_Cache_Build -t ghostscript_rust_cached --progress=plain .
 
 build-%:
+	yglu template_base.yaml > template.yaml
 	DOCKER_BUILDKIT=1 docker build -f ./app-$*/Dockerfile_Build -t ghostscript_rust_latest --progress=plain --output type=local,dest=./.aws-sam/build/GhostscriptRust .
 
 deploy-%:

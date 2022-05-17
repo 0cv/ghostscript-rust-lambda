@@ -1,21 +1,10 @@
-#[macro_use]
-extern crate error_chain;
+extern crate anyhow;
+extern crate aws_sdk_config;
+extern crate aws_sdk_appconfigdata;
 
-
-use std::{fs, borrow::Borrow};
 use serde::{Serialize, Deserialize};
-
-mod errors {
-    error_chain!{
-        foreign_links {
-            Io(::std::io::Error);
-            Ftp(::ftp::errors::Error);
-            Yaml(::serde_yaml::Error);
-            Pdf(::pdf2tiff::errors::Error);
-        }
-    }
-}
-use errors::*;
+use std::fs;
+use anyhow::Result;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Config{
@@ -27,20 +16,15 @@ struct Config{
 
 fn main() {
     if let Err(e) = run() {
-        println!("error ====> {}", e);
-
-        /////// look at the chain of errors... ///////
-        // for e in e.iter().skip(1) {
-        //     println!("caused by: {}", e);
-        // }
-
-        match e.kind() {
-            &ErrorKind::Ftp(ref s) => println!("ftp error => {}",s),
-            &ErrorKind::Io(ref s) => println!("io {}",s),
-            &ErrorKind::Msg(ref s) => println!("msg {}",s),
-            &ErrorKind::Pdf(ref s) => println!("pdf error => {}",s),
-            &ErrorKind::Yaml(ref s) => println!("yaml error => {}",s),
-            &_ => println!("unhandled error!!"),
+        if let Some(my_error) = e.downcast_ref::<pdf2tiff::PdfError>() {
+            match my_error {
+                pdf2tiff::PdfError::BuilderError{kind, code, user_data} => println!("builder error {}, {}, {}", kind, code, user_data),
+                pdf2tiff::PdfError::PdfRunningInstanceException(s) => println!("Instance run {}", e),
+            }
+        } else if let Some(my_error) = e.downcast_ref::<ftp::FtpError>() {
+            println!("pdf transformation error: {}", my_error);
+        } else {
+            println!("something else: {}", e);
         }
 
         std::process::exit(1);
@@ -50,7 +34,7 @@ fn main() {
 fn run() -> Result<()> {
     let file_config: String = fs::read_to_string("app-fr/config.yaml")?;
 
-    let config: Config = serde_yaml::from_str(file_config.borrow())?;
+    let config: Config = serde_yaml::from_str(&file_config)?;
     
     let ftp_connect = ftp::builder::FtpBuilder::new(&config.user, &config.pass, &config.addr)?;
 

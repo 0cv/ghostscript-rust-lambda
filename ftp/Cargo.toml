@@ -9,4 +9,5 @@ include = ["src/**/*", "Cargo.toml", "*.md", "LICENSE*.txt"]
 [dependencies]
 ssh2 = "0.9" 
 openssl = { version = "0.10", features = ["vendored"] }
-error-chain = "*"
+anyhow = "1.0"
+thiserror = "1.0"

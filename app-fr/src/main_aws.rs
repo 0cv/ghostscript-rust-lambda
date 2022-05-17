@@ -1,27 +1,17 @@
 #[cfg(bootstrap)]
 
+extern crate aws_sdk_appconfigdata;
+extern crate aws_smithy_http;
 extern crate ftp;
 extern crate pdf2tiff;
+extern crate anyhow;
 
-#[macro_use]
-extern crate error_chain;
+mod load_config;
 
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
-use std::{fs, borrow::Borrow};
-use std::result::Result;
-
-mod errors {
-    error_chain!{
-        foreign_links {
-            Io(::std::io::Error);
-            Ftp(::ftp::errors::Error);
-            Yaml(::serde_yaml::Error);
-            Pdf(::pdf2tiff::errors::Error);
-        }
-    }
-}
-use errors::*;
+use std::fs;
+use anyhow::Result;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Config{
@@ -36,10 +26,6 @@ struct Request {
     file: String,
 }
 
-/// This is a made-up example of what a response structure may look like.
-/// There is no restriction on what it can be. The runtime requires responses
-/// to be serialized into json. The runtime pays no attention
-/// to the contents of the response payload.
 #[derive(Serialize)]
 struct Response {
     req_id: String,
@@ -62,17 +48,21 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn handler(event: LambdaEvent<Request>) -> Result<(), errors::Error>{
-    if let Err(e) = run() {
+async fn handler(event: LambdaEvent<Request>) -> Result<()>{
+    if let Err(e) = run().await {
         println!("error ====> {}", e);
 
-        match e.kind() {
-            &ErrorKind::Ftp(ref s) => println!("ftp error => {}",s),
-            &ErrorKind::Io(ref s) => println!("io {}",s),
-            &ErrorKind::Msg(ref s) => println!("msg {}",s),
-            &ErrorKind::Pdf(ref s) => println!("pdf error => {}",s),
-            &ErrorKind::Yaml(ref s) => println!("yaml error => {}",s),
-            &_ => println!("unhandled error!!"),
+        if let Some(my_error) = e.downcast_ref::<pdf2tiff::PdfError>() {
+            match my_error {
+                pdf2tiff::PdfError::BuilderError{kind, code, user_data} => println!("builder error {}, {}, {}", kind, code, user_data),
+                pdf2tiff::PdfError::PdfRunningInstanceException(s) => println!("Instance run {}", e),
+            }
+        } else if let Some(my_error) = e.downcast_ref::<load_config::LoadConfigError>() {
+            println!("configuration loading error: {}", my_error);
+        } else if let Some(my_error) = e.downcast_ref::<ftp::FtpError>() {
+            println!("pdf transformation error: {}", my_error);
+        } else {
+            println!("something else: {}", e);
         }
 
         return Err(e);
@@ -82,15 +72,14 @@ async fn handler(event: LambdaEvent<Request>) -> Result<(), errors::Error>{
 }
 
 
-fn run() -> errors::Result<()> {
-    let file_config: String = fs::read_to_string("app-fr/config.yaml")?;
+async fn run() -> Result<()> {
+    let config = load_config::load_config().await?;
 
-    let config: Config = serde_yaml::from_str(file_config.borrow())?;
+    println!("config : {}", config);
+
+    let config: Config = serde_yaml::from_str(&config)?;
     
     let ftp_connect = ftp::builder::FtpBuilder::new(&config.user, &config.pass, &config.addr)?;
-
-    let res = ftp_connect.list_dir("/")?;
-
 
     let res = ftp_connect.list_dir("/QA")?;
 
@@ -100,11 +89,9 @@ fn run() -> errors::Result<()> {
 
     fs::write("./file.txt", file)?;
 
-    let pdf2tiff = pdf2tiff::builder::PdfBuilder::new(&config.base64);
-    let tiff_base64 = pdf2tiff.convert()?;
+    let tiff_base64 = pdf2tiff::builder::PdfBuilder::new(&config.base64).convert()?;
 
     println!("tiff_base64 => {:?}", tiff_base64);
 
     Ok(())
 }
-

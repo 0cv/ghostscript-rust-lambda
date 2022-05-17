@@ -1,21 +1,32 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-
 Resources:
   GhostscriptRust:
     Type: AWS::Serverless::Function
     Properties:
       MemorySize: 256
-      Architectures: ["x86_64"]
+      Architectures:
+      - x86_64
       Handler: bootstrap
       Runtime: provided.al2
       Timeout: 300
       CodeUri: .
       Layers:
-        - !Ref GhostscriptLayer
+      - !Ref GhostscriptLayer
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Resource:
+          - '*'
+          Action:
+          - appconfig:*
+      Environment:
+        Variables:
+          AppId: !Ref Application
+          EnvId: !Ref Environment
+          ConfigId: !Ref ConfigurationProfile
     Metadata:
       BuildMethod: makefile
-
   GhostscriptLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -23,8 +34,58 @@ Resources:
       Description: Ghostscript Layer
       ContentUri: ghostscript/gs-lib/
       RetentionPolicy: Retain
-
-Outputs:
-  FunctionName:
-    Value: !Ref GhostscriptRust
-    Description: Ghostscript with Rust
+  Application:
+    Type: AWS::AppConfig::Application
+    Properties:
+      Name: app-config-rust
+  Environment:
+    Type: AWS::AppConfig::Environment
+    Properties:
+      ApplicationId: !Ref Application
+      Name: prod-rust
+  ConfigurationProfile:
+    Type: AWS::AppConfig::ConfigurationProfile
+    Properties:
+      ApplicationId: !Ref Application
+      LocationUri: hosted
+      Name: prod-config-rust
+  BasicHostedConfigurationVersion:
+    Type: AWS::AppConfig::HostedConfigurationVersion
+    Properties:
+      ApplicationId: !Ref Application
+      ConfigurationProfileId: !Ref ConfigurationProfile
+      Description: Standard config
+      Content: "servers:\n  ccg:\n    active: \"true\"\n    scheduleHours: [\"12\"\
+        ]\n    sftpServer: \"sftp-servers.insmed\"\n    recordType: \"CCG_Response_MVN\"\
+        \n    idField: \"REQUEST_ID\"\n    file:\n      encryption: \"true\"\n   \
+        \   type: \"Promotional Materials Request Response\"\n      path: \"/CCG/Outbound/\"\
+        \n      name: \"CCG_Promotional_Material_Request_Response_File_<DATE>\"\n\
+        \      extension: \"txt\"\n      mapping: \"ccg\"\n      dateFormat: \"yyyyMMdd\"\
+        \n      manual:\n        name: \"CCG_Promotional_Material_Request_Response_File_Manual\"\
+        \n        control: \"CCG_Promotional_Material_Request_Response_Control_File_Manual\"\
+        \n        shyft: \"Insmed_Promotional_Material_Request_Response_File_Manual\"\
+        \n      control:\n        active: \"true\"\n        encryption: \"true\"\n\
+        \        name: \"CCG_Promotional_Material_Request_Response_Control_File_<DATE>\"\
+        \n        extension: \"txt\"\n      shyft:\n        active: \"true\"\n   \
+        \     encryption: \"false\"\n        controlFile: \"false\"\n        fileName:\
+        \ \"Insmed_Promotional_Material_Request_Response_File_<DATE>\"\n        path:\
+        \ \"/PROD/Inbound/CCG/\"\n        mapping: \"ccg-shyft\"\n  shyft:\n    active:\
+        \ \"true\"\n    scheduleHours: [\"10\",\"16\"]\n    sftpServer: \"sftp-servers.shyft\"\
+        \n    recordType: \"SP_Status_Change_MVN\"\n    idField: \"REQUEST_ID\"\n\
+        \    file:\n      encryption: \"true\"\n      type: \"01\"\n      path: \"\
+        /PROD/Outbound/Mastered Status/\"\n      name: \"Insmed_Master_Status_<NUMBER>_<DATE>\"\
+        \n      extension: \"txt\"\n      mapping: \"shyft\"\n      dateFormat: \"\
+        yyyyMMdd\"\n      manual:\n        name: \"Insmed_Master_Status_Manual\"\n\
+        \        control: \"\"\n        shyft: \"\"\n      control:\n        active:\
+        \ \"false\"\n        encryption: \"false\"\n        name: \"\"\n        extension:\
+        \ \"\"\n      shyft:\n        active: \"false\"\n        encryption: \"false\"\
+        \n        controlFile: \"false\"\n        fileName: \"\"\n        path: \"\
+        \"\n        mapping: \"\""
+      ContentType: application/x-yaml
+  DeploymentStrategy:
+    Type: AWS::AppConfig::DeploymentStrategy
+    Properties:
+      DeploymentDurationInMinutes: 1
+      GrowthFactor: 1.0
+      Name: DepStratRust
+      ReplicateTo: NONE

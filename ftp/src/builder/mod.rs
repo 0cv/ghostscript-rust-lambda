@@ -2,7 +2,7 @@ use std::io::Read;
 use std::net::TcpStream;
 use std::path::Path;
 use ssh2::Session;
-use errors::*;
+use anyhow::Result;
 
 #[derive(Clone)]
 pub struct FtpBuilder<'a> {
@@ -13,7 +13,7 @@ pub struct FtpBuilder<'a> {
 }
 
 impl<'a> FtpBuilder<'a> {
-    pub fn new(user: &'a str, pass: &'a str, addr: &'a str) -> Result<FtpBuilder<'a>> {
+    pub fn new(user: &'a str, pass: &'a str, addr: &'a str) -> Result<FtpBuilder<'a>, ::FtpError> {
         let tcp = TcpStream::connect(&addr)?;
         let mut sess = Session::new()?;
         sess.set_tcp_stream(tcp);
@@ -30,7 +30,7 @@ impl<'a> FtpBuilder<'a> {
         })
     }
 
-    pub fn list_dir(&self, dir: &'a str) -> Result<Vec<std::path::PathBuf>> {
+    pub fn list_dir(&self, dir: &'a str) -> Result<Vec<std::path::PathBuf>, ::FtpError> {
         let sftp = self.sess.sftp()?;
         let data_path = Path::new(&dir);
         Ok(sftp.readdir(&data_path)?
@@ -39,7 +39,7 @@ impl<'a> FtpBuilder<'a> {
             .collect::<Vec<_>>())
     }
 
-    pub fn download(&self, path: &'a str) -> Result<Vec<u8>> {
+    pub fn download(&self, path: &'a str) -> Result<Vec<u8>, ::FtpError> {
         let sftp = self.sess.sftp()?;
         let data_path = Path::new(&path);
         let mut buf = Vec::new();
