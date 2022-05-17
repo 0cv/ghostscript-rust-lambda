@@ -2,3 +2,4 @@
 .aws-sam
 samconfig.toml
 config.yaml
+ftp_servers.yaml

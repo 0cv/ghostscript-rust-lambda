@@ -1,28 +1,22 @@
 use std::io::Read;
 use std::net::TcpStream;
 use std::path::Path;
-use ssh2::Session;
 use anyhow::Result;
+use ssh2::Session;
 
-#[derive(Clone)]
-pub struct FtpBuilder<'a> {
-    pub user: &'a str,
-    pub pass: &'a str,
-    pub addr: &'a str,
-    pub sess: Session,
-}
 
-impl<'a> FtpBuilder<'a> {
-    pub fn new(user: &'a str, pass: &'a str, addr: &'a str) -> Result<FtpBuilder<'a>, ::FtpError> {
+impl<'a> ::FtpBuilder<'a> {
+    pub fn new(user: &'a str, pass: &'a str, addr: &'a str) -> Result<::FtpBuilder<'a>, ::FtpError> {
         let tcp = TcpStream::connect(&addr)?;
         let mut sess = Session::new()?;
+        sess.set_timeout(15000);
         sess.set_tcp_stream(tcp);
         sess.handshake()?;
 
         sess.userauth_password(&user, &pass)?;
         println!("is authenticated: {}", sess.authenticated());
 
-        Ok(FtpBuilder {
+        Ok(::FtpBuilder {
             user,
             pass,
             addr,

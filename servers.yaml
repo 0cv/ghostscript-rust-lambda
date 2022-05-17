@@ -1,0 +1,62 @@
+|
+servers:
+  ccg:
+    active: "true"
+    scheduleHours: ["12"]
+    sftpServer: "sftp-servers.insmed"
+    recordType: "CCG_Response_MVN"
+    idField: "REQUEST_ID"
+    file:
+      encryption: "true"
+      type: "Promotional Materials Request Response"
+      path: "/CCG/Outbound/"
+      name: "CCG_Promotional_Material_Request_Response_File_<DATE>"
+      extension: "txt"
+      mapping: "ccg"
+      dateFormat: "yyyyMMdd"
+      manual:
+        name: "CCG_Promotional_Material_Request_Response_File_Manual"
+        control: "CCG_Promotional_Material_Request_Response_Control_File_Manual"
+        shyft: "Insmed_Promotional_Material_Request_Response_File_Manual"
+      control:
+        active: "true"
+        encryption: "true"
+        name: "CCG_Promotional_Material_Request_Response_Control_File_<DATE>"
+        extension: "txt"
+      shyft:
+        active: "true"
+        encryption: "false"
+        controlFile: "false"
+        fileName: "Insmed_Promotional_Material_Request_Response_File_<DATE>"
+        path: "/PROD/Inbound/CCG/"
+        mapping: "ccg-shyft"
+  shyft:
+    active: "true"
+    scheduleHours: ["10","16"]
+    sftpServer: "sftp-servers.shyft"
+    recordType: "SP_Status_Change_MVN"
+    idField: "REQUEST_ID"
+    file:
+      encryption: "true"
+      type: "01"
+      path: "/PROD/Outbound/Mastered Status/"
+      name: "Insmed_Master_Status_<NUMBER>_<DATE>"
+      extension: "txt"
+      mapping: "shyft"
+      dateFormat: "yyyyMMdd"
+      manual:
+        name: "Insmed_Master_Status_Manual"
+        control: ""
+        shyft: ""
+      control:
+        active: "false"
+        encryption: "false"
+        name: ""
+        extension: ""
+      shyft:
+        active: "false"
+        encryption: "false"
+        controlFile: "false"
+        fileName: ""
+        path: ""
+        mapping: ""

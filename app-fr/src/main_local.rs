@@ -1,18 +1,15 @@
 extern crate anyhow;
 extern crate aws_sdk_config;
 extern crate aws_sdk_appconfigdata;
+extern crate retry;
 
-use serde::{Serialize, Deserialize};
-use std::fs;
+mod struct_ftp;
+
 use anyhow::Result;
+use std::fs;
+use struct_ftp::FtpServer;
+use retry::{retry, delay::Fixed};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Config{
-    user: String,
-    pass: String,
-    addr: String,
-    base64: String,
-}
 
 fn main() {
     if let Err(e) = run() {
@@ -22,7 +19,9 @@ fn main() {
                 pdf2tiff::PdfError::PdfRunningInstanceException(s) => println!("Instance run {}", e),
             }
         } else if let Some(my_error) = e.downcast_ref::<ftp::FtpError>() {
-            println!("pdf transformation error: {}", my_error);
+            println!("ftp error: {}", my_error);
+        } else if let Some(my_error) = e.downcast_ref::<retry::Error<ftp::FtpError>>() {
+            println!("retry ftp error: {}", my_error);
         } else {
             println!("something else: {}", e);
         }
@@ -32,27 +31,37 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    let file_config: String = fs::read_to_string("app-fr/config.yaml")?;
+    let file_config: String = fs::read_to_string("ftp_servers.yaml")?;
 
-    let config: Config = serde_yaml::from_str(&file_config)?;
+    let config: FtpServer = serde_yaml::from_str(&file_config)?;
+
+    println!("config: {:?}", config);
     
-    let ftp_connect = ftp::builder::FtpBuilder::new(&config.user, &config.pass, &config.addr)?;
+    let ftp_connect = retry(Fixed::from_millis(1000).take(3), || {
+        println!("Retry ..");
+        ftp::FtpBuilder::new(
+            &config.servers["insmedaws"].username, 
+            &config.servers["insmedaws"].password, 
+            &config.servers["insmedaws"].host,
+        )
+    })?;
 
-    let res = ftp_connect.list_dir("/")?;
+    let res = retry(Fixed::from_millis(1000).take(3), || {
+        ftp_connect.list_dir("/")
+    })?;
 
-
-    let res = ftp_connect.list_dir("/QA")?;
-
-    let file = ftp_connect.download("/QA/Inbound/Insmed_Promotional_Material_Request_File_20220506.txt")?;
+    let file = retry(Fixed::from_millis(1000).take(3), || { 
+        ftp_connect.download("/QA/Inbound/Insmed_Promotional_Material_Request_File_20220506.txt")
+    })?;
 
     println!("file.. {:?}", file);
 
     fs::write("./file.txt", file)?;
 
-    let pdf2tiff = pdf2tiff::builder::PdfBuilder::new(&config.base64);
-    let tiff_base64 = pdf2tiff.convert()?;
+    // let pdf = pdf2tiff::builder::PdfBuilder::new();
+    // let tiff_base64 = pdf.convert(config.base64)?;
 
-    println!("tiff_base64 => {:?}", tiff_base64);
+    // println!("tiff_base64 => {:?}", tiff_base64);
 
     Ok(())
 }

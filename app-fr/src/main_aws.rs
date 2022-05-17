@@ -5,13 +5,14 @@ extern crate aws_smithy_http;
 extern crate ftp;
 extern crate pdf2tiff;
 extern crate anyhow;
+extern crate retry;
 
 mod load_config;
 
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use anyhow::Result;
+use retry::{retry, delay::Fixed};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Config{
@@ -79,17 +80,22 @@ async fn run() -> Result<()> {
 
     let config: Config = serde_yaml::from_str(&config)?;
     
-    let ftp_connect = ftp::builder::FtpBuilder::new(&config.user, &config.pass, &config.addr)?;
+    let ftp_connect = retry(Fixed::from_millis(1000).take(3), || {
+        ftp::FtpBuilder::new(&config.user, &config.pass, &config.addr)
+    })?;
 
-    let res = ftp_connect.list_dir("/QA")?;
+    let res = retry(Fixed::from_millis(1000).take(3), || {
+        ftp_connect.list_dir("/QA")
+    })?;
 
-    let file = ftp_connect.download("/QA/Inbound/Insmed_Promotional_Material_Request_File_20220506.txt")?;
+    let file = retry(Fixed::from_millis(1000).take(3), || { 
+        ftp_connect.download("/QA/Inbound/Insmed_Promotional_Material_Request_File_20220506.txt")
+    })?;
 
     println!("file.. {:?}", file);
 
-    fs::write("./file.txt", file)?;
-
-    let tiff_base64 = pdf2tiff::builder::PdfBuilder::new(&config.base64).convert()?;
+    let pdf = pdf2tiff::builder::PdfBuilder::new();
+    let tiff_base64 = pdf.convert(config.base64)?;
 
     println!("tiff_base64 => {:?}", tiff_base64);
 

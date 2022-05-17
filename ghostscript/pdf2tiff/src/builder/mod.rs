@@ -5,25 +5,18 @@ use self::display_callback::PageGrabberDisplayCallback;
 use std::{fs::File, io::Read};
 use anyhow::Result;
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct PdfBuilder<'a> {
-    pub base64: &'a str,
+    output_file_name: &'a str,
+    // pub base64: &'a str,
+    builder: GhostscriptBuilder<PageGrabberDisplayCallback<'a>>,
 }
 
 impl<'a> PdfBuilder<'a> {
-    pub fn new(base64: &'a str) -> Self {
-        PdfBuilder {
-            base64,
-        }
-    }
-
-    pub fn convert(&self) -> Result<String> {
-        let output_file_name = "/tmp/output.tif";
+    pub fn new() -> Self {
         let mut builder = GhostscriptBuilder::new();
-    
-        let bytes = base64::decode(self.base64)?;
-        let mut my_callback = PageGrabberDisplayCallback::new(&bytes);
-    
+        let output_file_name = "/tmp/output.tif";
+
         builder.with_stdin(true);
         // builder.with_display(true);
     
@@ -34,11 +27,22 @@ impl<'a> PdfBuilder<'a> {
             &format!("-sOutputFile={}", output_file_name),
             "-",
         ]);
+
+        PdfBuilder {
+            output_file_name: output_file_name,
+            // base64,
+            builder: builder,
+        }
+    }
+
+    pub fn convert(&self, base64: String) -> Result<String> {
+        let bytes = base64::decode(base64)?;
+        let mut my_callback = PageGrabberDisplayCallback::new(&bytes);
     
         // If we used build() instead of build_simple() we could have passed any data
         // to associate with the new Ghostscript interpreter instance.
         // Such user data can also implement some useful Ghostscript callback traits.
-        return match builder.build(&mut my_callback) {
+        return match self.builder.build(&mut my_callback) {
             BuilderResult::Running(instance) => {
                 // This is where we could get a running instance for further interpreter work.
                 // But our init params above should have made the interpreter immediately quit
@@ -51,7 +55,7 @@ impl<'a> PdfBuilder<'a> {
                 // The following repeats the same rendering as above, but the has_quit() shorthand is used
                 // to convert BuilderResult into Result in a similar way to the above match.
             
-                let mut f = File::open(output_file_name)?;
+                let mut f = File::open(self.output_file_name)?;
                 let mut buffer = Vec::new();
                 f.read_to_end(&mut buffer)?;
                 Ok(String::from(base64::encode(&buffer.as_slice())))

@@ -25,6 +25,7 @@ aws-sdk-config = "*"
 aws-config = "*"
 aws-types = "*"
 aws-smithy-http = "*"
+retry = "*"
 
 anyhow = "1"
 thiserror = "1"
